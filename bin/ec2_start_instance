@@ -1,0 +1,47 @@
+#!/bin/bash
+curdir=$(dirname $(stat -f "%N" $0))
+parentdir=$(dirname $curdir)
+# initialize environments
+. "${parentdir}/ec2-api-tools.conf"
+# launch instance
+echo -ne "region: [${EC2_REGION}] "
+read region
+test -z $region && region=${EC2_REGION}
+echo -ne "AMI: [${EC2_DEFAULT_AMI}] "
+read ami
+test -z $ami && ami=${EC2_DEFAULT_AMI}
+echo -ne "instance type: [${EC2_DEFAULT_TYPE}] "
+read type
+test -z $type && type=${EC2_DEFAULT_TYPE}
+echo -ne "security group: [${EC2_DEFAULT_SECURITY_GROUP}] "
+read security_group
+test -z $security_group && security_group=${EC2_DEFAULT_SECURITY_GROUP}
+echo -ne "key name: [${EC2_DEFAULT_KEY_NAME}] "
+read key_name
+test -z $key_name && key_name=${EC2_DEFAULT_KEY_NAME}
+echo "- starting launch instance"
+${parentdir}/ec2-api-tools/bin/ec2-run-instances --region ${region} ${ami} -n 1 -g ${security_group} -k ${key_name} -t ${type} --instance-initiated-shutdown-behavior terminate
+if [ $? -ne 0 ]; then
+ echo "failed to launch instance" 1>&2
+ exit 1
+fi
+# wait ready instance
+echo -ne "- waiting ready ec2 instance."
+instancecmd="${parentdir}/ec2-api-tools/bin/ec2-describe-instances"
+i=0
+while :; do
+ if $(${instancecmd} | grep -i running > /dev/null); then
+  instance=$(${instancecmd} | grep -i INSTANCE | awk '{print $2}')
+  ip=$(${instancecmd} | grep -i NICASSOCIATION | awk '{print $2}')
+  echo -ne "\n"
+  break
+ elif [ $i -eq 30 ]; then
+  echo -ne "\nchecking instance status has been timeout.\nplease ckeck status manually.\n"
+  exit 0
+ fi
+ i=$(expr $i + 1)
+ echo -ne '.'
+ sleep 1
+done
+echo -ne "[INSTANCE] ${instance}\n[IP ADDRESS] ${ip}\n"
+exit 0

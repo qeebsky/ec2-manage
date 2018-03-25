@@ -1,0 +1,30 @@
+#!/bin/bash
+curdir=$(dirname $(stat -f "%N" $0))
+parentdir=$(dirname $curdir)
+# initialize environments
+. "${parentdir}/ec2-api-tools.conf"
+# check instances
+i=0
+instance=()
+for s in $(${parentdir}/ec2-api-tools/bin/ec2-describe-instances); do
+ case "$s" in
+  "RESERVATION" | "INSTANCE" )
+   i=$(expr $i + 1);;
+  * )
+   instance[$i]="${instance[$i]} $s";;
+ esac
+done
+if [ ${#instance[@]} -eq 0 ]; then
+ echo "No instance"
+ exit 0
+fi
+i=1
+while [ $i -le ${#instance[@]} ]; do
+ s=$(echo ${instance[$i]} | sed -e 's/^[[:space:]]*//')
+ if echo "${s}" | grep -E "^r-" > /dev/null; then
+  echo "[RESERVATION] $s"
+ elif echo "${s}" | grep -E "^i-" > /dev/null; then
+  echo "[INSTANCE] $s"
+ fi
+ i=$(expr $i + 1)
+done

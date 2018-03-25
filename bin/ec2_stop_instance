@@ -1,0 +1,14 @@
+#!/bin/bash
+curdir=$(dirname $(stat -f "%N" $0))
+parentdir=$(dirname $curdir)
+# initialize environments
+. "${parentdir}/ec2-api-tools.conf"
+# terminate instance
+echo -ne "instance ID: "
+read instance
+${parentdir}/ec2-api-tools/bin/ec2-stop-instances $instance
+if [ $? -ne 0 ]; then
+ echo "failed to stop instance" 1>&2
+ exit 1
+fi
+exit 0
